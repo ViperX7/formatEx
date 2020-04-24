@@ -11,13 +11,15 @@ def plain_print(inp):
         sys.stdout.buffer.write(inp)
 
 def sanitize_where(where):
-    if type(where) == int:
-        addr = where
-    elif type(where) == str:
-        addr = int(where ,16)
-    else:
-        print("ERROR")
-        exit()
+    addr = []
+    for x in where:
+        if type(x) == int:
+            addr.append(x)
+        elif type(x) == str:
+            addr.append(int(x ,16))
+        else:
+            print("ERROR: Input Format Error")
+            exit()
     return addr
 
 
@@ -117,44 +119,75 @@ def writer(c2print, steps, param_offset):
         else:
             return pld
 
+def prep_bytes(what, steps):
+    order = []
+    final = []
+    split_bytes = []
+    for p in range(len(what)):
+        hx = what[p][2:]
+        while ((len(hx)//2) % 4 != 0):
+            hx = "00" + hx
+        hx_len = len(hx)//2
 
-def write(what, where, param_offset, context="compact"):
-    addr = sanitize_where(where) 
+        split_byte = []
+        for x in range(hx_len//steps):
+            byte = int("0x" + hx[2 * x * steps: 2 * (x + 1) * steps], 16)
+            split_byte.append(byte)
+        split_bytes.append(split_byte)
+        final = sorted( final + split_byte )
+
+    for x in final:
+        for split_byte in split_bytes:
+            if x in split_byte:
+                order.append((split_byte.index(x), split_bytes.index(split_byte)))
+                split_byte[split_byte.index(x)] = "XX"
+
+    return final, order
+
+
+
+def write(content,  param_offset, context="compact"):
+    what = list(content.values())
+    where = list(content.keys())
+    addr = sanitize_where(where)
 
     if context == "safe":
         steps= 1
-    elif  context=="risky" or int(what,16) < 0xffff:
+    elif  context=="risky" or int(max(what),16) < 0xffff:
         steps = 4       # 1, 2, 4
     else:
         steps = 2
 
 
+    final, order = prep_bytes(what, steps)
 
-    hx = what[2:]
-    while ((len(hx)//2) % 4 != 0):
-        hx = "00" + hx
-    hx_len = len(hx)//2
-    split_bytes = []
-
-    for x in range(hx_len//steps):
-        byte = int("0x" + hx[2 * x * steps: 2 * (x + 1) * steps], 16)
-        split_bytes.append(byte)
-
-    order = []
-    final = sorted(split_bytes)
-    for x in final:
-        order.append(split_bytes.index(x))
-        split_bytes[split_bytes.index(x)] = "XX"
-
-
-    # print(final)
     final = cprinter(final)
 
     fmt = writer(final, steps, param_offset)
     fmt = fmt.encode()
 
-    for x in order:
-        fmt += p64(addr + steps * (max(order) - x))
+
+    # print("order: " + str(order))
+    # print(final)
+    # print("addr: " + str(addr))
+    # print("\n\n")
+    for i in range(len(order)):
+
+        x = order[i]
+        marker = x[1]
+        tmp = []
+        for o in order:
+            if o[1] == marker:
+                tmp.append(o[0])
+        max_splits = max(tmp)
+
+        # print("i: " + str(i))
+        # print("addr_index: " + str(marker))
+        # print("x: " + str(x))
+        # print("addr[addr_index]: " + hex(addr[marker] + steps * (max_splits-x[0])))
+        # print("-------\n")
+
+        fmt += p64(addr[marker] + steps * (max_splits  - x[0]))
 
     return fmt
 
@@ -178,8 +211,15 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.write:
-        pld = write(args.value, args.loc, int(args.offset), args.context)
-        # print(len(pld))
+        what = args.value.split(",")
+        where = args.loc.split(",")
+        content = dict( zip(where, what) )
+        if len(what) != len(where):
+            print("Error: no of values do not match no of addresses")
+            exit(2)
+
+        pld = write(content, int(args.offset), args.context)
+        print(len(pld))
         plain_print(pld)
     elif args.binary:
         if args.attempts:

@@ -1,3 +1,4 @@
+#!/bin/env python3
 import subprocess
 from pwn import *
 import sys
@@ -16,13 +17,18 @@ def sanitize_where(where):
         if type(x) == int:
             addr.append(x)
         elif type(x) == str:
-            addr.append(int(x ,16))
+            try:
+                addr.append(int(x ,16))
+            except ValueError :
+                print("ERROR: Input Format Error")
+                exit()
         else:
             print("ERROR: Input Format Error")
             exit()
     return addr
 
-
+# Helper function to interact with given binary 
+# using stdin, arguments & environment
 def tbin(binary, pld,  method="stdin"):
     if method == "stdin":
         res = subprocess.check_output(
@@ -46,7 +52,7 @@ def reflector(binary, attempts=100, method="stdin"):
             out.append(x)
     return out
 
-
+# Todo : remove
 def whr_pss(inp):
     HX = inp
     if type(inp) == str:
@@ -119,6 +125,8 @@ def writer(c2print, steps, param_offset):
         else:
             return pld
 
+# takes care of size of given input and extra padding
+# to clear off exxess bytes (residue from previous value)
 def prep_bytes(what, steps):
     order = []
     final = []
@@ -219,7 +227,7 @@ if __name__ == "__main__":
             exit(2)
 
         pld = write(content, int(args.offset), args.context)
-        print(len(pld))
+        # print(len(pld))
         plain_print(pld)
     elif args.binary:
         if args.attempts:

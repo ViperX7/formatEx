@@ -3,6 +3,20 @@ import subprocess
 from pwn import *
 import sys
 
+# Added code to help hexencode strings and bytes
+def hexify(inp_bytes):
+    inp_bytes = inp_bytes[::-1]
+    out = ""
+    if type(inp_bytes) == str:
+        for x in inp_bytes:
+            out += hex(ord(x))[2:]
+    elif type(inp_bytes) == bytes:
+        for x in inp_bytes:
+            out += hex(x)[2:]
+    out = "0x" + out
+    return out
+
+
 
 def plain_print(inp):
     if type(inp) == str:
@@ -158,6 +172,12 @@ def write(content,  param_offset, context="compact"):
     what = list(content.values())
     where = list(content.keys())
     addr = sanitize_where(where)
+
+    for x in range(len(what)):
+        try:
+            int(what[x], 16)
+        except ValueError:
+            what[x] = hexify(what[x])
 
     if context == "safe":
         steps= 1

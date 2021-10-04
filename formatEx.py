@@ -164,8 +164,9 @@ def prep_bytes(what, steps):
     split_bytes = []
     for p in range(len(what)):
         hx = what[p][2:]
-        while ((len(hx) // 2) % 4 != 0):
-            hx = "00" + hx
+        if steps > 1:
+            while ((len(hx) // 2) % 4 != 0):
+                hx = "00" + hx
         hx_len = len(hx) // 2
 
         split_byte = []
@@ -219,7 +220,7 @@ def write(content, param_offset, shift=0, context="compact", platform="amd64"):
     final = cprinter(final)
 
     fmt = writer(final, steps, param_offset, ptr_size)
-    fmt += '_' * (shift % ptr_size)
+    fmt += 'o' * (shift % ptr_size)
     # print("=> " + fmt)
     fmt = fmt.encode()
 
